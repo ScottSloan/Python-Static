@@ -71,6 +71,7 @@ jobs:
           # 安装 Python 包
           /usr/local/opt/python-static/bin/python3.12 -m ensurepip
           sudo mkdir -p /usr/local/opt/site-packages
+          sudo chown -R $USER /usr/local/opt/site-packages
           /usr/local/opt/python-static/bin/python3.12 -m pip install requests PySide6 protobuf qrcode[pil] PySide6-Fluent-Widgets --target=/usr/local/opt/site-packages
 
       - name: Simplify Python runtime
