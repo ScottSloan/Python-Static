@@ -1,0 +1,142 @@
+name: Build Static Python Runtime
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  macos-build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: build libffi
+        run: |
+          # 安装 libffi
+          curl -LO https://github.com/libffi/libffi/releases/download/v3.4.6/libffi-3.4.6.tar.gz
+
+          tar -xzf libffi-3.4.6.tar.gz
+          cd libffi-3.4.6
+
+          export MACOSX_DEPLOYMENT_TARGET=12.0
+
+          ./configure --disable-shared --enable-static --with-pic --prefix=/usr/local/opt/libffi-static
+          make -j$(sysctl -n hw.ncpu)
+          sudo make install
+
+      - name: build openssl
+        run: |
+          # 安装 OpenSSL
+          curl -LO https://www.openssl.org/source/openssl-3.3.0.tar.gz
+
+          tar -xzf openssl-3.3.0.tar.gz
+          cd openssl-3.3.0
+
+          export MACOSX_DEPLOYMENT_TARGET=12.0
+
+          ./config darwin64-arm64-cc no-shared --prefix=/usr/local/opt/openssl-static --openssldir=/usr/local/opt/openssl-static/ssl --libdir=lib
+          make -j$(sysctl -n hw.ncpu)
+          sudo make install
+
+      - name: build Python static runtime
+        run: |
+          # 构建 Python 静态运行时环境
+          curl -LO https://www.python.org/ftp/python/3.12.10/Python-3.12.10.tgz
+
+          tar -xzf Python-3.12.10.tgz
+          cd Python-3.12.10
+
+          echo "*static*" > Modules/Setup.local
+          echo "_ssl _ssl.c \$(OPENSSL_INCLUDES) \$(OPENSSL_LDFLAGS) -lssl -lcrypto -ldl -lpthread" >> Modules/Setup.local
+          echo "_hashlib _hashopenssl.c \$(OPENSSL_INCLUDES) \$(OPENSSL_LDFLAGS) -lcrypto -ldl -lpthread" >> Modules/Setup.local
+
+          export LDFLAGS="-L/usr/local/opt/openssl-static/lib -L/usr/local/opt/libffi-static/lib"
+          export CPPFLAGS="-I/usr/local/opt/openssl-static/include -I/usr/local/opt/libffi-static/include"
+          export PKG_CONFIG_PATH="/usr/local/opt/openssl-static/lib/pkgconfig:/usr/local/opt/libffi-static/lib/pkgconfig"
+          export PKG_CONFIG="pkg-config --static"
+          export MACOSX_DEPLOYMENT_TARGET=12.0
+
+          ./configure \
+            --prefix=/usr/local/opt/python-static \
+            --disable-shared \
+            --enable-optimizations \
+            --with-openssl=/usr/local/opt/openssl-static \
+            --with-ensurepip=install
+
+          make -j$(sysctl -n hw.ncpu)
+          sudo make install
+
+      - name: Run pip
+        run: |
+          # 安装 Python 包
+          /usr/local/opt/python-static/bin/python3.12 -m ensurepip
+          sudo mkdir -p /usr/local/opt/site-packages
+          /usr/local/opt/python-static/bin/python3.12 -m pip install requests PySide6 protobuf qrcode[pil] PySide6-Fluent-Widgets --target=/usr/local/opt/site-packages
+
+      - name: Simplify Python runtime
+        run: |
+          # 简化 Python 运行时环境
+          cd /usr/local/opt/python-static
+
+          sudo rm -rf include lib/pkgconfig share
+
+          sudo rm -rf lib/python3.12/idlelib
+          sudo rm -rf lib/python3.12/tkinter
+          sudo rm -rf lib/python3.12/test
+          sudo rm -rf lib/python3.12/turtledemo
+          sudo rm -rf lib/python3.12/pydoc_data
+          sudo rm -rf lib/python3.12/ensurepip
+          sudo rm -rf lib/python3.12/lib2to3
+          sudo rm -rf lib/python3.12/unittest
+          sudo rm -rf lib/python3.12/venv
+          sudo rm -rf lib/python3.12/config-3.12-*
+
+          sudo find lib/python3.12 -name "__pycache__" -type d -exec rm -rf {} +
+          sudo find lib/python3.12 -name "*.pyc" -delete
+
+          sudo mkdir -p /usr/local/opt/runtime/lib-dynload
+          sudo cp bin/python3.12 /usr/local/opt/runtime/
+
+          cd lib/python3.12
+          sudo cp -r lib-dynload/* /usr/local/opt/runtime/lib-dynload/
+          sudo rm -rf lib-dynload
+
+          sudo zip -r ../python312.zip .
+
+          cd ..
+
+          sudo cp python312.zip /usr/local/opt/runtime/
+
+      - name: Upload python runtime artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: python-static-runtime-macos-arm64
+          path: /usr/local/opt/runtime
+
+      - name: Simplify site-packages
+        run: |
+          # 简化 site-packages
+
+          cd /usr/local/opt/site-packages
+
+          sudo find . -name "*.dist-info" -type d -exec rm -rf {} +
+          sudo find . -name "*.egg-info" -type d -exec rm -rf {} +
+          sudo find . -name "__pycache__" -type d -exec rm -rf {} +
+          sudo find . -name "*.pyc" -delete
+
+          ls
+
+          # 对 PySide6 进行精简
+          cd PySide6
+
+          # 只保留核心模块
+          sudo rm -f *.pyi
+          sudo rm -rf doc glue include lib QtAsyncio scripts support typesystems
+          sudo rm -rf QtQuick* QtWeb*
+
+      - name: Upload site-packages artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: python-site-packages-macos-arm64
+          path: /usr/local/opt/site-packages
+
