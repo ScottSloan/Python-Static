@@ -1,8 +1,8 @@
 name: Build Static Python Runtime
 on:
   push:
-    branches:
-      - main
+    # branches:
+    #   - main
 
 jobs:
   # macos-build:
@@ -141,41 +141,3 @@ jobs:
   #         name: python-site-packages-macos-arm64
   #         path: /usr/local/opt/site-packages
 
-  test-macos-runtime:
-    runs-on: macos-latest
-    steps:
-      - name: Prepare macOS runtime
-        run: |
-          # 下载 Python 静态运行时环境
-          echo arch: $(uname -m)
-
-
-          wget https://github.com/ScottSloan/Python-Static/releases/download/v0.0.2/macos_aarch64_runtime.zip
-
-          unzip macos_aarch64_runtime.zip -d Bili23-Downloader
-
-          chmod +x Bili23-Downloader/bili23-downloader
-          chmod +x Bili23-Downloader/bundle/ffmpeg
-          chmod +x Bili23-Downloader/runtime/python3.12
-
-      - name: Download source code
-        run: |
-          # 下载源代码
-          git clone https://github.com/ScottSloan/Bili23-Downloader.git Bili23-Downloader-Source
-
-          mkdir -p Bili23-Downloader/script
-
-          cp -r Bili23-Downloader-Source/src/* Bili23-Downloader/script
-
-      - name: Test macOS runtime
-        run: |
-          cd Bili23-Downloader
-
-          # 测试 python
-          ./runtime/python3.12 -c "import sys; print(sys.executable); print(sys.version); import httpx; print(httpx.__version__); import PySide6; print(PySide6.__version__)"
-
-          # 测试 ffmpeg
-          ./bundle/ffmpeg -version
-
-          # 测试 loader
-          ./bili23-downloader
