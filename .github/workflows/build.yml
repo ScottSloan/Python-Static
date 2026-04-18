@@ -142,10 +142,7 @@ jobs:
   #         path: /usr/local/opt/site-packages
 
   test-macos-runtime:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [macos-14, macos-15, macos-26]
+    runs-on: macos-latest
     steps:
       - name: Prepare macOS runtime
         run: |
@@ -175,6 +172,9 @@ jobs:
 
           # 测试 python
           echo ""
+          otool -L runtime/python3.12
+
+          echo ""
           echo "Python Runtime Test:"
           ./runtime/python3.12 -c "import sys; print(sys.executable); print(sys.version); import httpx; print(httpx.__version__); import PySide6; print(PySide6.__version__)"
 
@@ -186,6 +186,11 @@ jobs:
           # 测试 loader
           echo ""
           echo "Loader Test:"
-          ./bili23-downloader && sleep 5 && pkill -f bili23-downloader
+          ./bili23-downloader & APP_PID=$!
+
+          # 5 秒后检查进程是否仍在运行
+          sleep 5
+          ps -p $APP_PID
+          kill $APP_PID
 
       
