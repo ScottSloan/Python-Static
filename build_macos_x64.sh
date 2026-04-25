@@ -2,23 +2,10 @@
 export MACOSX_DEPLOYMENT_TARGET=10.15
 
 # -----------------------------------------------------------
-# 编译 gettext
-curl -LO https://ftp.gnu.org/gnu/gettext/gettext-0.22.5.tar.gz
-tar -xzf gettext-0.22.5.tar.gz
-cd gettext-0.22.5
-
-# 配置为只生成静态库
-./configure --disable-shared --enable-static --with-pic --prefix=/usr/local/opt/gettext-static
-make -j$(sysctl -n hw.ncpu)
-sudo make install
-
-cd ..
-
-# -----------------------------------------------------------
 # 编译 libffi
-curl -LO https://github.com/libffi/libffi/releases/download/v3.4.7/libffi-3.4.7.tar.gz
-tar -xzf libffi-3.4.7.tar.gz
-cd libffi-3.4.7
+curl -LO https://github.com/libffi/libffi/releases/download/v3.4.8/libffi-3.4.8.tar.gz
+tar -xzf libffi-3.4.8.tar.gz
+cd libffi-3.4.8
 
 # 配置为只生成静态库
 ./configure --disable-shared --enable-static --with-pic --prefix=/usr/local/opt/libffi-static
@@ -52,11 +39,10 @@ echo "_ssl _ssl.c \$(OPENSSL_INCLUDES) \$(OPENSSL_LDFLAGS) -lssl -lcrypto -ldl -
 echo "_hashlib _hashopenssl.c \$(OPENSSL_INCLUDES) \$(OPENSSL_LDFLAGS) -lcrypto -ldl -lpthread" >> Modules/Setup.local
 
 # 配置并静态编译 Python
-export LDFLAGS="-L/usr/local/opt/openssl-static/lib -L/usr/local/opt/libffi-static/lib -L/usr/local/opt/gettext-static/lib -Wl,-search_paths_first"
-export CPPFLAGS="-I/usr/local/opt/openssl-static/include -I/usr/local/opt/libffi-static/include -I/usr/local/opt/gettext-static/include"
-export PKG_CONFIG_PATH="/usr/local/opt/openssl-static/lib/pkgconfig:/usr/local/opt/libffi-static/lib/pkgconfig:/usr/local/opt/gettext-static/lib/pkgconfig"
+export LDFLAGS="-L/usr/local/opt/openssl-static/lib -L/usr/local/opt/libffi-static/lib"
+export CPPFLAGS="-I/usr/local/opt/openssl-static/include -I/usr/local/opt/libffi-static/include"
+export PKG_CONFIG_PATH="/usr/local/opt/openssl-static/lib/pkgconfig:/usr/local/opt/libffi-static/lib/pkgconfig"
 export PKG_CONFIG="pkg-config --static"
-export LIBS="-lintl -liconv"
 
 ./configure \
 	--prefix=/usr/local/opt/python-static \
