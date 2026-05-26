@@ -1,23 +1,25 @@
 name: Build Static Python Runtime
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
 
 jobs:
   macos-build:
-    strategy:
-      matrix:
-        include:
-          - arch: aarch64
-            os: macos-latest
-            arg: darwin64-arm64-cc
+    # strategy:
+    #   matrix:
+    #     include:
+    #       - arch: aarch64
+    #         os: macos-latest
+    #         arg: darwin64-arm64-cc
 
-          # - arch: x86_64
-          #   os: macos-15-intel
-          #   arg: darwin64-x86_64-cc
+    #       - arch: x86_64
+    #         os: macos-15-intel
+    #         arg: darwin64-x86_64-cc
 
-    runs-on: ${{ matrix.os }}
+    # runs-on: ${{ matrix.os }}
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v6
 
