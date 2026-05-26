@@ -1,8 +1,8 @@
 # -----------------------------------------------------------
 # 编译 libffi
-wget https://github.com/libffi/libffi/releases/download/v3.4.6/libffi-3.4.6.tar.gz
-tar -xzf libffi-3.4.6.tar.gz
-cd libffi-3.4.6
+wget https://github.com/libffi/libffi/releases/download/v3.4.8/libffi-3.4.8.tar.gz
+tar -xzf libffi-3.4.8.tar.gz
+cd libffi-3.4.8
 
 # 配置为只生成静态库
 ./configure --disable-shared --enable-static --with-pic --prefix=/opt/libffi-static
@@ -45,8 +45,7 @@ export PKG_CONFIG="pkg-config --static"
 	--prefix=/opt/python-static \
 	--disable-shared \
 	--enable-optimizations \
-	--with-openssl=/opt/openssl-static \
-	--without-ensurepip
+	--with-openssl=/opt/openssl-static
 
 # 编译并安装
 make -j$(nproc)
