@@ -1,9 +1,9 @@
 name: Build Static Python Runtime
 on:
-  workflow_dispatch:
-  push:
-    branches:
-      - main
+  # workflow_dispatch:
+  # push:
+  #   branches:
+  #     - main
 
 jobs:
   macos-build:
@@ -79,58 +79,83 @@ jobs:
           make -j$(sysctl -n hw.ncpu)
           sudo make altinstall
 
-      - name: Build loader
+      - name: Install Python dependencies
         run: |
-          # 构建 loader
-          git clone https://github.com/ScottSloan/Bili23-Downloader-Loader.git
+          # 安装 Python 依赖
+          cd /usr/local/opt/python-static/bin
 
-          cd Bili23-Downloader-Loader/linux_macos
+          sudo mkdir -p /usr/local/opt/site-packages
+          sudo chown -R $USER /usr/local/opt/site-packages
 
-          export MACOSX_DEPLOYMENT_TARGET=12.0
+          ./python3.13 -m pip install PySide6==6.9.3 httpx protobuf qrcode psutil PySide6-Fluent-Widgets
 
-          cmake . -DPython3_ROOT_DIR=/usr/local/opt/python-static -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl-static
+      # - name: Build loader
+      #   run: |
+      #     # 构建 loader
+      #     git clone https://github.com/ScottSloan/Bili23-Downloader-Loader.git
 
-          make
+      #     cd Bili23-Downloader-Loader/linux_macos
 
-      - name: Simplify Python runtime
+      #     export MACOSX_DEPLOYMENT_TARGET=12.0
+
+      #     cmake . -DPython3_ROOT_DIR=/usr/local/opt/python-static -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl-static
+
+      #     make
+
+      # - name: Simplify Python runtime
+      #   run: |
+      #     # 简化 Python 运行时环境
+      #     cd /usr/local/opt/python-static
+
+      #     cd lib/python3.13
+
+      #     sudo rm -rf idlelib
+      #     sudo rm -rf tkinter
+      #     sudo rm -rf test
+      #     sudo rm -rf turtledemo
+      #     sudo rm -rf pydoc_data
+      #     sudo rm -rf ensurepip
+      #     sudo rm -rf lib2to3
+      #     sudo rm -rf unittest
+      #     sudo rm -rf venv
+      #     sudo rm -rf config-3.13-*
+
+      #     sudo find ./ -name "__pycache__" -type d -exec rm -rf {} +
+      #     sudo find ./ -name "*.pyc" -delete
+
+      #     sudo zip -r ../python313.zip .
+
+      # - name: show loader info
+      #   run: |
+      #     echo "Loader Info:"
+      #     otool -L Bili23-Downloader-Loader/linux_macos/loader
+
+      - name: Simplify site-packages
         run: |
-          # 简化 Python 运行时环境
-          cd /usr/local/opt/python-static
+          # 简化 site-packages
+          cd /usr/local/opt/site-packages
 
-          cd lib/python3.13
-
-          sudo rm -rf idlelib
-          sudo rm -rf tkinter
-          sudo rm -rf test
-          sudo rm -rf turtledemo
-          sudo rm -rf pydoc_data
-          sudo rm -rf ensurepip
-          sudo rm -rf lib2to3
-          sudo rm -rf unittest
-          sudo rm -rf venv
-          sudo rm -rf config-3.13-*
-
+          sudo find ./ -name "*.dist-info" -type d -exec rm -rf {} +
           sudo find ./ -name "__pycache__" -type d -exec rm -rf {} +
           sudo find ./ -name "*.pyc" -delete
 
-          sudo zip -r ../python313.zip .
+      # - name: Upload loader artifact
+      #   uses: actions/upload-artifact@v6
+      #   with:
+      #     name: python-static-loader-macos-${{ matrix.arch }}
+      #     path: Bili23-Downloader-Loader/linux_macos/loader
 
-      - name: show loader info
-        run: |
-          echo "Loader Info:"
-          otool -L Bili23-Downloader-Loader/linux_macos/loader
+      # - name: Upload python runtime artifact
+      #   uses: actions/upload-artifact@v6
+      #   with:
+      #     name: python-static-runtime-macos-${{ matrix.arch }}
+      #     path: /usr/local/opt/python-static/lib/python313.zip
 
-      - name: Upload loader artifact
+      - name: Upload site-packages artifact
         uses: actions/upload-artifact@v6
         with:
-          name: python-static-loader-macos-${{ matrix.arch }}
-          path: Bili23-Downloader-Loader/linux_macos/loader
-
-      - name: Upload python runtime artifact
-        uses: actions/upload-artifact@v6
-        with:
-          name: python-static-runtime-macos-${{ matrix.arch }}
-          path: /usr/local/opt/python-static/lib/python313.zip
+          name: python-static-site-packages-macos-${{ matrix.arch }}
+          path: /usr/local/opt/site-packages
 
   # test-macos-runtime:
   #   strategy:

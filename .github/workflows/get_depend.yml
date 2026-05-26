@@ -1,0 +1,34 @@
+name: Get Python Dependencies
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  get-dependencies:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3.13
+          architecture: arm64
+
+      - name: Resolve site-packages path
+        id: site_packages
+        run: |
+          echo "site_packages=$(python -c 'import site; print(site.getsitepackages()[0])')" >> "$GITHUB_OUTPUT"
+
+      - name: Install dependencies
+        run: |
+          pip install PySide6==6.9.3 httpx protobuf qrcode psutil PySide6-Fluent-Widgets
+
+      - name: Upload dependencies
+        uses: actions/upload-artifact@v6
+        with:
+          name: python-dependencies
+          path: |
+            ${{ steps.site_packages.outputs.site_packages }}
