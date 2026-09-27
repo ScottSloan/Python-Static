@@ -1,0 +1,10 @@
+# Linux / macOS 运行时的 site-packages 依赖
+# PySide6 固定为 6.9.x：更高版本不再支持 macOS 12
+PySide6==6.9.3
+PySide6-Fluent-Widgets
+httpx
+protobuf
+qrcode
+psutil
+orjson
+verhub-sdk

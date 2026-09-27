@@ -1,219 +1,51 @@
 name: Build Static Python Runtime
 on:
   workflow_dispatch:
-  # push:
-  #   branches:
-  #     - main
+    inputs:
+      python-version:
+        description: Python 版本
+        default: 3.13.13
+      loader-ref:
+        description: Bili23-Downloader-Loader 分支 / 标签
+        default: main
 
 jobs:
   macos-build:
-    # strategy:
-    #   matrix:
-    #     include:
-    #       - arch: aarch64
-    #         os: macos-latest
-    #         arg: darwin64-arm64-cc
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: aarch64
+            os: macos-latest
 
-    #       - arch: x86_64
-    #         os: macos-15-intel
-    #         arg: darwin64-x86_64-cc
+          - arch: x86_64
+            os: macos-15-intel
 
-    # runs-on: ${{ matrix.os }}
-    runs-on: macos-latest
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
 
-      - name: build libffi
+      - name: Build runtime
+        env:
+          PYTHON_VERSION: ${{ inputs.python-version }}
+          LOADER_REF: ${{ inputs.loader-ref }}
+        run: ./build.sh
+
+      - name: Check dynamic libraries
         run: |
-          # 安装 libffi
-          curl -LO https://github.com/libffi/libffi/releases/download/v3.4.8/libffi-3.4.8.tar.gz
+          # 除系统库外不应依赖任何动态库（如 Homebrew）
+          cd dist/macos_${{ matrix.arch }}_runtime
+          otool -L bili23-downloader runtime/lib/python3.*/lib-dynload/*.so | grep -E '/(opt/homebrew|usr/local)/' && exit 1 || true
 
-          tar -xzf libffi-3.4.8.tar.gz
-          cd libffi-3.4.8
-
-          export MACOSX_DEPLOYMENT_TARGET=12.0
-
-          ./configure --disable-shared --enable-static --with-pic --prefix=/usr/local/opt/libffi-static
-          make -j$(sysctl -n hw.ncpu)
-          sudo make install
-
-      - name: build openssl
+      - name: Test runtime
         run: |
-          # 安装 OpenSSL
-          curl -LO https://www.openssl.org/source/openssl-3.3.0.tar.gz
+          # 压缩包已生成，这里直接替换入口脚本做冒烟测试
+          cd dist/macos_${{ matrix.arch }}_runtime
+          echo 'import sys, ssl, lzma, decimal, sqlite3, ctypes; print(sys.version); print(ssl.OPENSSL_VERSION)' > _pystand_static.int
+          ./bili23-downloader
 
-          tar -xzf openssl-3.3.0.tar.gz
-          cd openssl-3.3.0
-
-          export MACOSX_DEPLOYMENT_TARGET=12.0
-
-          ./config ${{ matrix.arg }} no-shared --prefix=/usr/local/opt/openssl-static --openssldir=/usr/local/opt/openssl-static/ssl --libdir=lib
-          make -j$(sysctl -n hw.ncpu)
-          sudo make install
-
-      - name: build Python static runtime
-        run: |
-          # 构建 Python 静态运行时环境
-          curl -LO https://www.python.org/ftp/python/3.13.13/Python-3.13.13.tgz
-
-          tar -xzf Python-3.13.13.tgz
-          cd Python-3.13.13
-
-          echo "*static*" > Modules/Setup.local
-          echo "_ssl _ssl.c \$(OPENSSL_INCLUDES) \$(OPENSSL_LDFLAGS) -lssl -lcrypto -ldl -lpthread" >> Modules/Setup.local
-          echo "_hashlib _hashopenssl.c \$(OPENSSL_INCLUDES) \$(OPENSSL_LDFLAGS) -lcrypto -ldl -lpthread" >> Modules/Setup.local
-
-          export LDFLAGS="-L/usr/local/opt/openssl-static/lib -L/usr/local/opt/libffi-static/lib"
-          export CPPFLAGS="-I/usr/local/opt/openssl-static/include -I/usr/local/opt/libffi-static/include"
-          export PKG_CONFIG_PATH="/usr/local/opt/openssl-static/lib/pkgconfig:/usr/local/opt/libffi-static/lib/pkgconfig"
-          export PKG_CONFIG="pkg-config --static"
-          export MACOSX_DEPLOYMENT_TARGET=12.0
-
-          ./configure \
-            --prefix=/usr/local/opt/python-static \
-            --disable-shared \
-            --enable-optimizations \
-            --with-openssl=/usr/local/opt/openssl-static \
-            --with-ensurepip=install
-
-          make -j$(sysctl -n hw.ncpu)
-          sudo make altinstall
-
-      - name: Install Python dependencies
-        run: |
-          # 安装 Python 依赖
-          cd /usr/local/opt/python-static/bin
-
-          sudo mkdir -p /usr/local/opt/site-packages
-          sudo chown -R $USER /usr/local/opt/site-packages
-
-          ./python3.13 -m pip install PySide6==6.9.3 httpx protobuf qrcode psutil PySide6-Fluent-Widgets
-
-      # - name: Build loader
-      #   run: |
-      #     # 构建 loader
-      #     git clone https://github.com/ScottSloan/Bili23-Downloader-Loader.git
-
-      #     cd Bili23-Downloader-Loader/linux_macos
-
-      #     export MACOSX_DEPLOYMENT_TARGET=12.0
-
-      #     cmake . -DPython3_ROOT_DIR=/usr/local/opt/python-static -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl-static
-
-      #     make
-
-      # - name: Simplify Python runtime
-      #   run: |
-      #     # 简化 Python 运行时环境
-      #     cd /usr/local/opt/python-static
-
-      #     cd lib/python3.13
-
-      #     sudo rm -rf idlelib
-      #     sudo rm -rf tkinter
-      #     sudo rm -rf test
-      #     sudo rm -rf turtledemo
-      #     sudo rm -rf pydoc_data
-      #     sudo rm -rf ensurepip
-      #     sudo rm -rf lib2to3
-      #     sudo rm -rf unittest
-      #     sudo rm -rf venv
-      #     sudo rm -rf config-3.13-*
-
-      #     sudo find ./ -name "__pycache__" -type d -exec rm -rf {} +
-      #     sudo find ./ -name "*.pyc" -delete
-
-      #     sudo zip -r ../python313.zip .
-
-      # - name: show loader info
-      #   run: |
-      #     echo "Loader Info:"
-      #     otool -L Bili23-Downloader-Loader/linux_macos/loader
-
-      - name: Simplify site-packages
-        run: |
-          # 简化 site-packages
-          cd /usr/local/opt/site-packages
-
-          sudo find ./ -name "*.dist-info" -type d -exec rm -rf {} +
-          sudo find ./ -name "__pycache__" -type d -exec rm -rf {} +
-          sudo find ./ -name "*.pyc" -delete
-
-      # - name: Upload loader artifact
-      #   uses: actions/upload-artifact@v6
-      #   with:
-      #     name: python-static-loader-macos-${{ matrix.arch }}
-      #     path: Bili23-Downloader-Loader/linux_macos/loader
-
-      # - name: Upload python runtime artifact
-      #   uses: actions/upload-artifact@v6
-      #   with:
-      #     name: python-static-runtime-macos-${{ matrix.arch }}
-      #     path: /usr/local/opt/python-static/lib/python313.zip
-
-      - name: Upload site-packages artifact
+      - name: Upload runtime artifact
         uses: actions/upload-artifact@v6
         with:
-          name: python-static-site-packages-macos-${{ matrix.arch }}
-          path: /usr/local/opt/site-packages
-
-  # test-macos-runtime:
-  #   strategy:
-  #     matrix:
-  #       include:
-  #         - arch: x86_64
-  #           os: macos-15-intel
-  #         - arch: aarch64
-  #           os: macos-latest
-  #   runs-on: ${{ matrix.os }}
-  #   steps:
-  #     - name: Prepare macOS runtime
-  #       run: |
-  #         # 下载 Python 静态运行时环境
-  #         echo arch: $(uname -m)
-  #         wget https://github.com/ScottSloan/Python-Static/releases/download/v0.0.4/macos_${{ matrix.arch }}_runtime.zip
-  #         unzip macos_${{ matrix.arch }}_runtime.zip -d Bili23-Downloader
-  #         chmod +x Bili23-Downloader/bili23-downloader
-  #         chmod +x Bili23-Downloader/bundle/ffmpeg
-  #         chmod +x Bili23-Downloader/runtime/python3.12
-
-  #     - name: Download source code
-  #       run: |
-  #         # 下载源代码
-  #         git clone https://github.com/ScottSloan/Bili23-Downloader.git Bili23-Downloader-Source
-  #         mkdir -p Bili23-Downloader/script
-  #         cp -r Bili23-Downloader-Source/src/* Bili23-Downloader/script
-
-  #     - name: Test macOS runtime
-  #       run: |
-  #         cd Bili23-Downloader
-
-  #         # 打印系统版本
-  #         echo "System Version:"
-  #         echo "macOS Version: $(sw_vers -productVersion)"
-  #         echo "Kernel Version: $(uname -r)"
-
-  #         # 测试 python
-  #         echo ""
-  #         otool -L runtime/python3.12
-
-  #         echo ""
-  #         echo "Python Runtime Test:"
-  #         ./runtime/python3.12 -c "import sys; print(sys.executable); print(sys.version); import httpx; print(httpx.__version__); import PySide6; print(PySide6.__version__)"
-
-  #         # 测试 ffmpeg
-  #         echo ""
-  #         echo "FFmpeg Test:"
-  #         ./bundle/ffmpeg -version
-
-  #         # 测试 loader
-  #         echo ""
-  #         echo "Loader Test:"
-  #         ./bili23-downloader & APP_PID=$!
-
-  #         # 5 秒后检查进程是否仍在运行
-  #         sleep 5
-  #         ps -p $APP_PID
-  #         kill $APP_PID
-
-      
+          name: macos_${{ matrix.arch }}_runtime
+          path: dist/macos_${{ matrix.arch }}_runtime.zip

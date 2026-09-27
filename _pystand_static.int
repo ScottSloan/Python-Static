@@ -1,0 +1,13 @@
+import sys, os
+
+os.chdir(os.path.dirname(__file__))
+
+sys.path.insert(0, os.path.abspath("script"))
+
+if __name__ == "__main__":
+    if not hasattr(sys, 'frozen'):
+        sys.frozen = True
+
+    from main import _main
+
+    _main()
