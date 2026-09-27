@@ -1,9 +1,10 @@
 name: Test Python Runtime
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
+    inputs:
+      tag:
+        description: 要测试的 Release 版本（如 v0.1.9），留空则使用最新版本
+        default: ''
 
 jobs:
   test-macos-runtime:
@@ -22,7 +23,14 @@ jobs:
         run: |
           # 下载 Python 静态运行时环境
           echo arch: $(uname -m)
-          wget https://github.com/ScottSloan/Python-Static/releases/download/v0.0.9/macos_${{ matrix.arch }}_runtime.zip
+
+          if [ -n "${{ inputs.tag }}" ]; then
+            url=https://github.com/ScottSloan/Python-Static/releases/download/${{ inputs.tag }}/macos_${{ matrix.arch }}_runtime.zip
+          else
+            url=https://github.com/ScottSloan/Python-Static/releases/latest/download/macos_${{ matrix.arch }}_runtime.zip
+          fi
+
+          wget "$url"
         
           unzip macos_${{ matrix.arch }}_runtime.zip -d Bili23-Downloader
 

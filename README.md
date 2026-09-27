@@ -187,10 +187,34 @@ PYTHON_VERSION=3.13.13 FFMPEG=/path/to/ffmpeg ./build.sh
   python3 scripts/trim_runtime.py dist/linux_amd64_runtime/runtime --dry-run
   ```
 
+## FFmpeg
+
+`bundle/` 中的 ffmpeg 是定制的精简版本，构建脚本位于 [ScottSloan/ffmpeg-build](https://github.com/ScottSloan/ffmpeg-build)。
+
+- 版本：FFmpeg 9.0.1，MP3 编码使用静态链接的 libmp3lame 3.100
+- 只启用程序需要的组件（`--disable-everything` 后按需开启），关闭网络、设备和硬件加速的自动检测
+
+| 组件 | 启用项 |
+| --- | --- |
+| 解复用器 | concat、ffmetadata、mov、mp4、flv、m4a、mp3、matroska、image2、ass |
+| 复用器 | mp4、flv、mp3、m4a、flac、matroska |
+| 解码器 | h264、hevc、av1、aac、flac、eac3、ac3、mjpeg、png、webp、ass |
+| 编码器 | libmp3lame、flac、mjpeg、png、ass |
+| 滤镜 | scale、format、null、copy、aresample、aformat、anull |
+| 协议 | file、concat、pipe |
+
+| 平台 | 构建方式 |
+| --- | --- |
+| Windows | 本地 MSYS2（GCC）编译，全静态链接，Windows 7 版与 Windows 10 / 11 版共用同一个文件 |
+| Linux | 本地编译，全静态链接（`-static`） |
+| macOS | 由 ffmpeg-build 仓库的 GitHub Actions 编译，`MACOSX_DEPLOYMENT_TARGET=12.0`，只依赖系统库 |
+
+构建时先编译静态的 libmp3lame，再参照 ffmpeg-build 仓库中的 `build.sh` 配置 FFmpeg。macOS 的完整步骤见该仓库的 [`build.yml`](https://github.com/ScottSloan/ffmpeg-build/blob/main/.github/workflows/build.yml)。
+
 ## GitHub Actions
 
 | Workflow | 说明 |
 | --- | --- |
 | [`build.yml`](.github/workflows/build.yml) | 手动触发，在 macOS（arm64 / Intel）上执行 `build.sh` 并上传产物 |
-| [`test_runtime.yml`](.github/workflows/test_runtime.yml) | 下载 Release 中的 macOS 运行时，搭配程序源码进行启动测试 |
+| [`test_runtime.yml`](.github/workflows/test_runtime.yml) | 手动触发，下载指定版本（默认最新）Release 中的 macOS 运行时，搭配程序源码进行启动测试 |
 | [`get_depend.yml`](.github/workflows/get_depend.yml) | 手动触发，在 macOS arm64 上下载依赖包 |
